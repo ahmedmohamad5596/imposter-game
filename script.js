@@ -1,5 +1,4 @@
 const screen = document.getElementById("screen");
-let selectedAvatarType = "boy";
 
 // بيانات اللعبة
 const gameData = {
@@ -18,6 +17,32 @@ currentVoter: 0
 };
 
 
+const AVATARS_DB = [
+  {
+    id: "boy",
+    name: "ولد",
+    emoji: "👦",
+    style: "adventurer"
+  },
+  {
+    id: "girl",
+    name: "بنت",
+    emoji: "👧",
+    style: "avataaars"
+  },
+  {
+    id: "ninja",
+    name: "نينجا",
+    emoji: "🥷",
+    style: "pixel-art"
+  },
+  {
+    id: "robot",
+    name: "روبوت",
+    emoji: "🤖",
+    style: "bottts"
+  }
+];
 
 // الأقسام
 const words = {
@@ -83,21 +108,177 @@ const words = {
   "أبو نسب"
 ],
   "👨‍🔧 مهن": [
-    "دكتور", "مهندس", "مدرس", "محامي", "نجار",
-    "حداد", "طيار", "صيدلي", "مبرمج", "محاسب"
-  ],
+  "دكتور",
+  "مهندس",
+  "مدرس",
+  "محامي",
+  "نجار",
+  "حداد",
+  "طيار",
+  "صيدلي",
+  "مبرمج",
+  "محاسب",
+  "صحفي",
+  "مصور",
+  "ممثل",
+  "مخرج",
+  "طبيب أسنان",
+  "ممرض",
+  "كهربائي",
+  "سباك",
+  "سائق",
+  "ضابط",
+  "عسكري",
+  "قاضي",
+  "سكرتير",
+  "مدير",
+  "تاجر",
+  "بائع",
+  "شيف",
+  "خباز",
+  "جزار",
+  "فلاح",
+  "مهندس معماري",
+  "مصمم جرافيك",
+  "معلق رياضي",
+  "مذيع",
+  "مراقب جودة",
+  "باحث",
+  "محلل بيانات",
+  "مطور ألعاب",
+  "مترجم",
+  "مخطط مدن"
+]
+,
   "🚗 سيارات": [
-    "تويوتا", "مرسيدس", "بي إم دبليو", "فيراري", "لامبورجيني",
-    "هيونداي", "كيا", "نيسان", "شيفروليه", "هوندا"
-  ],
+  "تويوتا",
+  "مرسيدس",
+  "بي إم دبليو",
+  "فيراري",
+  "لامبورجيني",
+  "هيونداي",
+  "كيا",
+  "نيسان",
+  "شيفروليه",
+  "هوندا",
+  "فورد",
+  "أودي",
+  "فولكس فاجن",
+  "بورش",
+  "مازدا",
+  "ميتسوبيشي",
+  "سوبارو",
+  "جيب",
+  "رينو",
+  "بيجو",
+  "سيتروين",
+  "فيات",
+  "سكودا",
+  "سوزوكي",
+  "تسلا",
+  "جاكوار",
+  "لاند روفر",
+  "إنفينيتي",
+  "لكزس",
+  "كاديلاك",
+  "بوجاتي",
+  "ماكلارين",
+  "ألفا روميو",
+  "دودج",
+  "رام",
+  "كرايسلر",
+  "سيات",
+  "شانجان",
+  "جيلي",
+  "BYD"
+]
+,
   "🍔 أكلات": [
-    "بيتزا", "كشري", "برجر", "شاورما", "محشي",
-    "مكرونة", "فراخ", "سمك", "كفتة", "كبسة"
-  ],
-  "🐶 حيوانات": [
-    "كلب", "قط", "أسد", "نمر", "فيل",
-    "قرد", "زرافة", "حصان", "ذئب", "دب"
-  ],
+  "بيتزا",
+  "كشري",
+  "برجر",
+  "شاورما",
+  "محشي",
+  "مكرونة",
+  "فراخ",
+  "سمك",
+  "كفتة",
+  "كبسة",
+  "ملوخية",
+  "فتة",
+  "شوربة",
+  "كباب",
+  "طاجن",
+  "أرز",
+  "مندي",
+  "كريب",
+  "سجق",
+  "لانشون",
+  "بطاطس",
+  "فلافل",
+  "فول",
+  "بيض",
+  "باستا",
+  "لازانيا",
+  "ريش",
+  "ستيك",
+  "سوشي",
+  "جمبري",
+  "كاليماري",
+  "رز بسمتي",
+  "بيتزا سي فود",
+  "حواوشي",
+  "فطير",
+  "عيش بلدي",
+  "ساندوتش",
+  "تشيز كيك",
+  "كيك",
+  "آيس كريم"
+]
+,
+ "🐶 حيوانات": [
+  "كلب",
+  "قط",
+  "أسد",
+  "نمر",
+  "فيل",
+  "قرد",
+  "زرافة",
+  "حصان",
+  "ذئب",
+  "دب",
+  "ثعلب",
+  "غزال",
+  "جمل",
+  "حمار",
+  "خروف",
+  "ماعز",
+  "بقرة",
+  "ثور",
+  "كنغر",
+  "باندا",
+  "نسر",
+  "صقر",
+  "غراب",
+  "حمامة",
+  "بومة",
+  "تمساح",
+  "سحلية",
+  "ثعبان",
+  "ضفدع",
+  "سلحفاة",
+  "دولفين",
+  "حوت",
+  "قرش",
+  "سمكة",
+  "حصان البحر",
+  "فقمة",
+  "بطريق",
+  "نملة",
+  "نحلة",
+  "فراشة"
+]
+,
   "🎲 متنوع": [
   "مفتاح",
   "مطر",
@@ -185,15 +366,8 @@ function selectCategory(category) {
   gameData.category = category;
   showPlayersScreen();
 }
-function setAvatarType(type, btn) {
-  selectedAvatarType = type;
 
-  document.querySelectorAll(".type-btn").forEach(b =>
-    b.classList.remove("active")
-  );
 
-  btn.classList.add("active");
-}
 
 
 /* =====================
@@ -208,12 +382,7 @@ function showPlayersScreen() {
 
     <input id="playerName" placeholder="اسم اللاعب" />
 
-    <div class="avatar-types">
-      <button onclick="setAvatarType('boy', this)" class="type-btn active">👦 ولد</button>
-      <button onclick="setAvatarType('girl', this)" class="type-btn">👧 بنت</button>
-      <button onclick="setAvatarType('ninja', this)" class="type-btn">🥷 نينجا</button>
-
-    </div>
+   
 
     <button onclick="addPlayer()">➕ إضافة لاعب</button>
 
@@ -225,35 +394,114 @@ function showPlayersScreen() {
   renderPlayers();
 }
 
-function getRandomAvatar(type = "boy") {
-  const id = Math.floor(Math.random() * 1000);
-
-  const styles = {
-    boy: "adventurer",
-    girl: "avataaars",
-    ninja: "pixel-art"
-  };
-
-  return `https://api.dicebear.com/7.x/${styles[type]}/svg?seed=anime${id}`;
-}
 
 
 function addPlayer() {
   const input = document.getElementById("playerName");
   const name = input.value.trim();
+  if (!name) return;
 
-  if (name === "") return;
-
- gameData.players.push({
-  name: name,
-  avatar: getRandomAvatar(selectedAvatarType),
-  avatarType: selectedAvatarType
-  
-});
-savePlayers();
+  gameData.pendingPlayerName = name;
   input.value = "";
-  renderPlayers();
+
+  showAvatarSelection();
 }
+
+
+
+function showAvatarSelection() {
+  const name = gameData.pendingPlayerName;
+
+  screen.className = "fade-in";
+  screen.innerHTML = `
+    <h2>اختار أفاتار لـ ${name}</h2>
+
+    <select id="avatarSelect" onchange="previewAvatar()">
+      <option value="" disabled selected>
+        -- اختر أفاتار --
+      </option>
+      ${AVATARS_DB.map(a =>
+        `<option value="${a.id}">
+          ${a.emoji} ${a.name}
+        </option>`
+      ).join("")}
+    </select>
+
+    <div class="avatar-preview">
+      <img id="avatarPreview" class="avatar" style="display:none;">
+    </div>
+
+    <button onclick="confirmAvatar()">تأكيد ✅</button>
+    <button onclick="showPlayersScreen()">⬅️ رجوع</button>
+  `;
+}
+
+
+
+
+function previewAvatar() {
+  const select = document.getElementById("avatarSelect");
+  const preview = document.getElementById("avatarPreview");
+
+  if (!select.value) {
+    preview.style.display = "none";
+    return;
+  }
+
+  const avatar = AVATARS_DB.find(a => a.id === select.value);
+  if (!avatar) return;
+
+  const seed = `${gameData.pendingPlayerName}_${avatar.id}`;
+  preview.src = getAvatar(avatar.style, seed);
+  preview.style.display = "block";
+}
+
+
+
+
+
+function getAvatar(style, seed) {
+  return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
+}
+
+
+
+
+
+function confirmAvatar() {
+  const select = document.getElementById("avatarSelect");
+  if (!select.value) {
+    alert("من فضلك اختر أفاتار");
+    return;
+  }
+
+  const avatar = AVATARS_DB.find(a => a.id === select.value);
+  if (!avatar) {
+    alert("أفاتار غير صالح");
+    return;
+  }
+
+  const name = gameData.pendingPlayerName;
+  const seed = `${name}_${avatar.id}`;
+
+  gameData.players.push({
+    name,
+    avatarId: avatar.id,
+    avatarSeed: seed,
+    avatar: getAvatar(avatar.style, seed)
+  });
+
+  delete gameData.pendingPlayerName;
+  savePlayers();
+  showPlayersScreen();
+}
+
+
+
+
+
+
+
 
 function removePlayer(index) {
   gameData.players.splice(index, 1);
