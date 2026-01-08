@@ -1,4 +1,6 @@
-const screen = document.getElementById("screen");
+let screen;
+let appStarted = false;
+let screenHistory = [];
 
 // بيانات اللعبة
 const gameData = {
@@ -17,32 +19,86 @@ currentVoter: 0
 };
 
 
+document.addEventListener("DOMContentLoaded", () => {
+  screen = document.getElementById("screen");
+  loadGameState();
+
+  showLoadingScreen(() => {
+    console.log("Loading finished");
+
+    // تأمين القيم
+    gameData.players = gameData.players || [];
+
+    showCategoryScreen(); // ⬅️ افتحها مباشرة للاختبار
+  });
+});
+
+
+function showLoadingScreen(nextScreen) {
+  renderScreen(`
+    <h2>لعبة الإمبوستر 🎭</h2>
+
+    <div class="loading-bar">
+      <div class="loading-progress">
+        <span>🔥</span>
+      </div>
+    </div>
+  `, false);
+
+  const progress = document.querySelector(".loading-progress");
+  let value = 0;
+
+  const interval = setInterval(() => {
+    value += 5;
+    progress.style.width = value + "%";
+
+    if (value >= 100) {
+      clearInterval(interval);
+
+      // ⬅️ هنا الحل
+      setTimeout(() => {
+        if (typeof nextScreen === "function") {
+          nextScreen();
+        } else {
+          console.error("nextScreen is not a function");
+        }
+      }, 300);
+    }
+  }, 80);
+}
+
+
+
+
 const AVATARS_DB = [
-  {
-    id: "boy",
-    name: "ولد",
-    emoji: "👦",
-    style: "adventurer"
-  },
-  {
-    id: "girl",
-    name: "بنت",
-    emoji: "👧",
-    style: "avataaars"
-  },
-  {
-    id: "ninja",
-    name: "نينجا",
-    emoji: "🥷",
-    style: "pixel-art"
-  },
   {
     id: "robot",
     name: "روبوت",
     emoji: "🤖",
-    style: "bottts"
+    set: "set1"
+  },
+  {
+    id: "monster",
+    name: "وحش",
+    emoji: "👹",
+    set: "set2"
+  },
+  {
+    id: "android",
+    name: "أندرويد",
+    emoji: "🦾",
+    set: "set3"
+  },
+  {
+    id: "cat",
+    name: "قطة",
+    emoji: "🐱",
+    set: "set4"
   }
 ];
+
+
+
 
 // الأقسام
 const words = {
@@ -336,6 +392,39 @@ const words = {
 
 };
 
+
+
+
+function renderScreen(html, saveHistory = true) {
+  if (saveHistory && screen.innerHTML.trim() !== "") {
+    screenHistory.push({
+      html: screen.innerHTML,
+      state: JSON.parse(JSON.stringify(gameData))
+    });
+  }
+
+  screen.className = "fade-in";
+  screen.innerHTML = `
+    ${screenHistory.length > 0 ? `
+      <button class="back-btn" onclick="goBack()">⬅️ رجوع</button>
+    ` : ""}
+    ${html}
+  `;
+}
+
+
+function goBack() {
+  if (screenHistory.length === 0) return;
+
+  const previous = screenHistory.pop();
+
+  Object.assign(gameData, previous.state);
+
+  screen.className = "fade-in";
+  screen.innerHTML = previous.html;
+}
+
+
 // منع تكرار الكلمة
 let lastWord = null;
 
@@ -348,24 +437,26 @@ function getRandomWord(category) {
 
 // شاشة اختيار القسم
 function showCategoryScreen() {
-  screen.className = "fade-in";
-    screen.innerHTML = `
-  
-
+  renderScreen(`
     <h2>اختر القسم</h2>
     ${categories.map(cat => `
       <div class="card" onclick="selectCategory('${cat}')">
         ${cat}
       </div>
     `).join("")}
-  `;
+  `);
 }
+
+
+
 
 // عند اختيار القسم
 function selectCategory(category) {
   gameData.category = category;
+  localStorage.setItem("gameState", JSON.stringify(gameData));
   showPlayersScreen();
 }
+
 
 
 
@@ -374,25 +465,21 @@ function selectCategory(category) {
    المرحلة الجاية (مؤقت)
 ===================== */
 function showPlayersScreen() {
-  screen.className = "fade-in";
-    screen.innerHTML = `
-  
-
+  renderScreen(`
     <h2>إدخال أسماء اللاعبين</h2>
 
     <input id="playerName" placeholder="اسم اللاعب" />
-
-   
 
     <button onclick="addPlayer()">➕ إضافة لاعب</button>
 
     <div id="playersList" class="players-grid"></div>
 
     <button onclick="showImposterScreen()">التالي</button>
-  `;
+  `);
 
   renderPlayers();
 }
+
 
 
 
@@ -412,19 +499,18 @@ function addPlayer() {
 function showAvatarSelection() {
   const name = gameData.pendingPlayerName;
 
-  screen.className = "fade-in";
-  screen.innerHTML = `
+  renderScreen(`
     <h2>اختار أفاتار لـ ${name}</h2>
 
     <select id="avatarSelect" onchange="previewAvatar()">
       <option value="" disabled selected>
         -- اختر أفاتار --
       </option>
-      ${AVATARS_DB.map(a =>
-        `<option value="${a.id}">
+      ${AVATARS_DB.map(a => `
+        <option value="${a.id}">
           ${a.emoji} ${a.name}
-        </option>`
-      ).join("")}
+        </option>
+      `).join("")}
     </select>
 
     <div class="avatar-preview">
@@ -432,8 +518,7 @@ function showAvatarSelection() {
     </div>
 
     <button onclick="confirmAvatar()">تأكيد ✅</button>
-    <button onclick="showPlayersScreen()">⬅️ رجوع</button>
-  `;
+  `);
 }
 
 
@@ -452,17 +537,21 @@ function previewAvatar() {
   if (!avatar) return;
 
   const seed = `${gameData.pendingPlayerName}_${avatar.id}`;
-  preview.src = getAvatar(avatar.style, seed);
+  preview.src = getAvatar(avatar.set, seed);
   preview.style.display = "block";
 }
 
 
 
-
-
-function getAvatar(style, seed) {
-  return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
+function getAvatar(set, seed) {
+  return `https://robohash.org/${encodeURIComponent(seed)}?set=${set}&size=150x150`;
 }
+
+
+
+
+
+
 
 
 
@@ -488,7 +577,8 @@ function confirmAvatar() {
     name,
     avatarId: avatar.id,
     avatarSeed: seed,
-    avatar: getAvatar(avatar.style, seed)
+    avatar: getAvatar(avatar.set, seed)
+
   });
 
   delete gameData.pendingPlayerName;
@@ -499,6 +589,54 @@ function confirmAvatar() {
 
 
 
+let activeEditor = null;
+
+function openNameEditor(e, index) {
+  e.stopPropagation();
+
+  // اقفل أي محرر مفتوح
+  if (activeEditor) activeEditor.remove();
+
+  const span = e.target;
+  const rect = span.getBoundingClientRect();
+
+  const editor = document.createElement("div");
+  editor.className = "name-editor";
+  editor.innerHTML = `
+    <input type="text" value="${gameData.players[index].name}" />
+    <div class="actions">
+      <button onclick="confirmNameEdit(${index}, this)">✔</button>
+      <button onclick="closeNameEditor()">✖</button>
+    </div>
+  `;
+
+  document.body.appendChild(editor);
+
+  editor.style.top = `${rect.top - 50 + window.scrollY}px`;
+  editor.style.left = `${rect.left + window.scrollX}px`;
+
+  editor.querySelector("input").focus();
+  activeEditor = editor;
+}
+
+function confirmNameEdit(index, btn) {
+  const input = btn.closest(".name-editor").querySelector("input");
+  const newName = input.value.trim();
+
+  if (!newName) return;
+
+  gameData.players[index].name = newName;
+  savePlayers();
+  renderPlayers();
+  closeNameEditor();
+}
+
+function closeNameEditor() {
+  if (activeEditor) {
+    activeEditor.remove();
+    activeEditor = null;
+  }
+}
 
 
 
@@ -518,7 +656,7 @@ function renderPlayers() {
       <div class="card">
         <div class="player-info">
           <img src="${player.avatar}" class="avatar">
-          <span>${player.name}</span>
+          <span  class="editable-name" onclick="openNameEditor(event, ${index})">${player.name}</span>
         </div>
         <button onclick="removePlayer(${index})">❌</button>
       </div>
@@ -539,9 +677,8 @@ function showImposterScreen() {
   }
 
   gameData.impostersCount = 1;
-screen.className = "fade-in";
-  screen.innerHTML = `
-    
+
+  renderScreen(`
     <h2>اختيار عدد الإمبوسترات</h2>
 
     <div class="card">
@@ -553,8 +690,12 @@ screen.className = "fade-in";
     <p>الحد الأقصى: ${maxImposters}</p>
 
     <button onclick="startGame()">ابدأ اللعبة 🎮</button>
-  `;
+  `);
 }
+  
+
+
+
 
 function changeImposters(value) {
   const maxImposters = Math.floor(gameData.players.length / 2);
@@ -567,6 +708,7 @@ function changeImposters(value) {
   document.getElementById("imposterCount").innerText =
     gameData.impostersCount;
 }
+
 
 function startGame() {
   // اختيار كلمة عشوائية
@@ -586,8 +728,11 @@ function startGame() {
   }
 
   gameData.currentPlayerIndex = 0;
+  localStorage.setItem("gameState", JSON.stringify(gameData));
   showPlayerReveal();
 }
+
+
 function generateQuestions() {
   gameData.questions = [];
 
@@ -631,18 +776,29 @@ function generateQuestions() {
 
 
 function showPlayerReveal() {
- const playerName =
-  gameData.players[gameData.currentPlayerIndex].name;
+  const playerName = gameData.players[gameData.currentPlayerIndex].name;
 
-screen.className = "fade-in";
-  screen.innerHTML = `
-  
-
+  renderScreen(`
     <h2>📱 الدور على</h2>
     <div class="card">${playerName}</div>
     <button onclick="revealRole()">عرض الدور</button>
-  `;
+  `, false);
 }
+
+
+function editPlayerName(index) {
+  const newName = prompt(
+    "اكتب الاسم الجديد:",
+    gameData.players[index].name
+  );
+
+  if (!newName || !newName.trim()) return;
+
+  gameData.players[index].name = newName.trim();
+  savePlayers();
+  renderPlayers();
+}
+
 
 function revealRole() {
   const index = gameData.currentPlayerIndex;
@@ -655,7 +811,6 @@ function revealRole() {
       .filter(i => i !== index)
       .map(i => gameData.players[i].name);
 
-
     extraInfo = `
       <p>👀 الإمبوسترز معاك:</p>
       <div class="card">
@@ -663,9 +818,8 @@ function revealRole() {
       </div>
     `;
   }
-screen.className = "fade-in";
-  screen.innerHTML = `
-    
+
+  renderScreen(`
     <h2>${isImposter ? "🚨 إمبوستر" : "✅ كلمتك"}</h2>
 
     <div class="card" style="font-size: 24px">
@@ -675,8 +829,11 @@ screen.className = "fade-in";
     ${extraInfo}
 
     <button onclick="nextPlayer()">التالي</button>
-  `;
+  `, false);
 }
+
+
+
 
 
 function nextPlayer() {
@@ -692,9 +849,7 @@ function nextPlayer() {
 }
 
 function showQuestionPhase() {
-    screen.className = "fade-in";
-  screen.innerHTML = `
-    
+  renderScreen(`
     <h2>🗣️ مرحلة الأسئلة</h2>
 
     <div class="card pulse">
@@ -704,8 +859,11 @@ function showQuestionPhase() {
     <p>🚫 ممنوع فتح الموبايل غير وقت دورك</p>
 
     <button onclick="showQuestion()">ابدأ ▶️</button>
-  `;
+  `);
 }
+
+
+
 
 
 
@@ -719,10 +877,8 @@ function showQuestion() {
 
   const fromPlayer = gameData.players[q.from];
   const toPlayer   = gameData.players[q.to];
-screen.className = "fade-in";
-  screen.innerHTML = `
-  
 
+  renderScreen(`
     <h2>🗣️ مرحلة الأسئلة</h2>
 
     <div class="card">
@@ -748,8 +904,11 @@ screen.className = "fade-in";
            </button>`
         : ""
     }
-  `;
+  `);
 }
+
+
+
 let selectedVotes = [];
 
 function canShowEarlyVote() {
@@ -799,16 +958,13 @@ function toggleVote(card) {
 
 function showEliminationResult(eliminated) {
   const eliminatedNames =
-  eliminated.map(i => gameData.players[i].name);
-
+    eliminated.map(i => gameData.players[i].name);
 
   const wasImposter = eliminated.some(i =>
     gameData.imposters.includes(i)
   );
-screen.className = "fade-in";
-  screen.innerHTML = `
-  
 
+  renderScreen(`
     <h2>❌ خرج من اللعبة</h2>
 
     <div class="card">
@@ -822,8 +978,14 @@ screen.className = "fade-in";
     <button onclick="nextRound(${JSON.stringify(eliminated)})">
       الجولة التالية 🔁
     </button>
-  `;
+  `, false);
 }
+
+
+
+
+
+
 function nextRound(eliminated) {
   // حذف اللاعبين
   eliminated.sort((a, b) => b - a);
@@ -846,14 +1008,13 @@ function nextRound(eliminated) {
     return;
   }
 
-  if (gameData.imposters.length >= gameData.players.length) {
+  if (gameData.imposters.length >= gameData.players.length - gameData.imposters.length) {
     screen.className = "fade-in";
-    screen.innerHTML = `
-    
+   renderScreen(`
+  <h2>😈 فوز الإمبوسترات</h2>
+  <p>سيطروا على اللعبة</p>
+`, false);
 
-      <h2>😈 فوز الإمبوسترات</h2>
-      <p>سيطروا على اللعبة</p>
-    `;
     return;
   }
 
@@ -861,24 +1022,30 @@ function nextRound(eliminated) {
   gameData.impostersCount = gameData.imposters.length;
   startGame();
 }
+
+
+
 function savePlayers() {
-  localStorage.setItem(
-    "imposterPlayers",
-    JSON.stringify(gameData.players)
-  );
+  localStorage.setItem( "imposterPlayers", JSON.stringify(gameData.players) );
+  localStorage.setItem("gameState", JSON.stringify(gameData));
+
 }
+
+
+
 function loadPlayers() {
   const saved = localStorage.getItem("imposterPlayers");
   if (saved) {
     gameData.players = JSON.parse(saved);
   }
 }
+
+
+
 function showVoteTurn() {
   const voter = gameData.players[gameData.currentVoter];
-screen.className = "fade-in";
-  screen.innerHTML = `
-  
 
+  renderScreen(`
     <h2>🗳️ دور التصويت</h2>
     <div class="card">
       الدور على: <b>${voter.name}</b>
@@ -888,10 +1055,13 @@ screen.className = "fade-in";
     <div id="voteList"></div>
 
     <button onclick="confirmVote()">تأكيد التصويت</button>
-  `;
+  `);
 
   renderVoteOptions();
 }
+
+
+
 
 
 function renderVoteOptions() {
@@ -913,6 +1083,8 @@ function renderVoteOptions() {
   });
 }
 
+
+
 function confirmVote() {
   const requiredVotes = gameData.impostersCount;
 
@@ -923,6 +1095,7 @@ function confirmVote() {
 
   gameData.votes[gameData.currentVoter] = [...selectedVotes];
   gameData.currentVoter++;
+  localStorage.setItem("gameState", JSON.stringify(gameData));
 
   if (gameData.currentVoter < gameData.players.length) {
     showVoteTurn();
@@ -930,6 +1103,10 @@ function confirmVote() {
     showVoteResult();
   }
 }
+
+
+
+
 
 function showVoteResult() {
   const voteCount = {};
@@ -947,12 +1124,9 @@ function showVoteResult() {
     .filter(e => e[1] === maxVotes)
     .map(e => Number(e[0]));
 
-  // ⚖️ حالة التعادل
+  // ⚖️ تعادل
   if (topPlayers.length > 1) {
-    screen.className = "fade-in";
-    screen.innerHTML = `
-    
-
+    renderScreen(`
       <h2>⚖️ تعادل في التصويت</h2>
 
       <div class="card">
@@ -962,21 +1136,16 @@ function showVoteResult() {
       <p>سيتم بدء جولة جديدة</p>
 
       <button onclick="showCountdownBeforeReveal()">كشف الإمبوسترات 👀</button>
-
-
-    `;
+    `, false);
     return;
   }
 
-  // ❌ لاعب واحد فقط خرج
   const eliminated = topPlayers[0];
   gameData.lastEliminated = eliminated;
 
   const wasImposter = gameData.imposters.includes(eliminated);
-screen.className = "fade-in";
-  screen.innerHTML = `
-  
 
+  renderScreen(`
     <h2>📢 نتيجة التصويت</h2>
 
     <div class="card">
@@ -988,10 +1157,13 @@ screen.className = "fade-in";
     </p>
 
     <button onclick="showCountdownBeforeReveal()">كشف الإمبوسترات 👀</button>
-
-
-  `;
+  `, false);
 }
+
+
+
+
+
 function startNewRoundAfterTie() {
   regenerateImposters();
   startNextRound();
@@ -1010,12 +1182,12 @@ function prepareNextRound() {
 
 // ✅ فوز اللاعبين
 if (gameData.imposters.length === 0) {
-  screen.innerHTML = `
-    screen.className = "fade-in";
+  screen.className = "fade-in";
+  renderScreen(`
+  <h2>🎉 فوز اللاعبين</h2>
+  <p>تم كشف كل الإمبوسترات</p>
+`, false);
 
-    <h2>🎉 فوز اللاعبين</h2>
-    <p>تم كشف كل الإمبوسترات</p>
-  `;
   return;
 }
 
@@ -1024,8 +1196,9 @@ const normalPlayers =
   gameData.players.length - gameData.imposters.length;
 
 if (gameData.imposters.length >= normalPlayers) {
+  screen.className = "fade-in";
   screen.innerHTML = `
-    screen.className = "fade-in";
+    
 
     <h2>😈 فوز الإمبوسترز</h2>
     <p>عددهم أصبح مسيطر على اللعبة</p>
@@ -1033,9 +1206,16 @@ if (gameData.imposters.length >= normalPlayers) {
   return;
 }
 
+localStorage.setItem("gameState", JSON.stringify(gameData));
 
   startNextRound();
 }
+
+
+
+
+
+
 function regenerateImposters() {
   gameData.imposters = [];
   const indices = [...Array(gameData.players.length).keys()];
@@ -1050,15 +1230,15 @@ function regenerateImposters() {
 }
 
 
+
+
 function showImposterRevealThenNextRound() {
   const impostersNames = gameData.imposters
     .map(i => gameData.players[i]?.name)
     .filter(Boolean)
     .join(" ، ");
-screen.className = "fade-in";
-  screen.innerHTML = `
-  
 
+  renderScreen(`
     <h2>👀 كشف الإمبوسترات</h2>
 
     <div class="card" style="font-size:22px">
@@ -1068,8 +1248,12 @@ screen.className = "fade-in";
     <p>⚠️ انتبه! الجولة الجاية بكلمة جديدة</p>
 
     <button onclick="prepareNextRound()">ابدأ الجولة التالية ▶️</button>
-  `;
+  `, false);
 }
+
+
+
+
 
 function startNextRound() {
   // اختيار كلمة جديدة
@@ -1110,22 +1294,6 @@ function showCountdownBeforeReveal() {
     }
   }, 1000);
 }
-function showImposterRevealThenNextRound() {
-  const impostersNames = gameData.imposters
-    .map(i => gameData.players[i]?.name)
-    .join(" ، ");
-
-  screen.innerHTML = `
-    <h2 class="shake">🚨 الإمبوسترات</h2>
-
-    <div class="card dramatic">
-      ${impostersNames}
-    </div>
-
-    <button onclick="prepareNextRound()">ابدأ الجولة التالية ▶️</button>
-  `;
-  screen.className = "fade-in";
-}
 
 function playSound(type) {
   const sounds = {
@@ -1147,6 +1315,18 @@ function toggleTheme() {
     isDark ? "☀️" : "🌙";
 }
 
+
+function loadGameState() {
+  const saved = localStorage.getItem("gameState");
+  if (saved) {
+    Object.assign(gameData, JSON.parse(saved));
+  }
+}
+
+
+
+
+
 // عند التشغيل
 (function loadTheme() {
   const saved = localStorage.getItem("theme");
@@ -1161,5 +1341,5 @@ const getName = i => gameData.players[i].name;
 const categories = Object.keys(words);
 
 // تشغيل اللعبة
-loadPlayers();
-showCategoryScreen();
+loadGameState();
+
