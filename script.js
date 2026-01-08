@@ -7,6 +7,8 @@ const gameData = {
   category: null,
   players: [],
   impostersCount: 0,
+  eliminatedImposters: 0, // 👈 عداد الإمبوسترات اللي خرجوا
+  eliminatedPlayers: 0,   // 👈 عداد اللاعبين اللي خرجوا
   currentWord: null,
   imposters: [],
   currentPlayerIndex: 0,
@@ -21,6 +23,7 @@ currentVoter: 0
 
 document.addEventListener("DOMContentLoaded", () => {
   screen = document.getElementById("screen");
+  loadPlayers();
   loadGameState();
 
   showLoadingScreen(() => {
@@ -656,7 +659,11 @@ function renderPlayers() {
       <div class="card">
         <div class="player-info">
           <img src="${player.avatar}" class="avatar">
-          <span  class="editable-name" onclick="openNameEditor(event, ${index})">${player.name}</span>
+          <span class="editable-name"
+      onclick="editPlayerName(event, ${index})">
+  ${player.name}
+</span>
+
         </div>
         <button onclick="removePlayer(${index})">❌</button>
       </div>
@@ -987,6 +994,14 @@ function showEliminationResult(eliminated) {
 
 
 function nextRound(eliminated) {
+  eliminated.forEach(i => {
+  if (gameData.imposters.includes(i)) {
+    gameData.eliminatedImposters++;
+  } else {
+    gameData.eliminatedPlayers++;
+  }
+});
+
   // حذف اللاعبين
   eliminated.sort((a, b) => b - a);
   eliminated.forEach(i => gameData.players.splice(i, 1));
@@ -997,22 +1012,72 @@ function nextRound(eliminated) {
     .map(i => i - eliminated.filter(e => e < i).length);
 
   // شروط النهاية
-  if (gameData.imposters.length === 0) {
-    screen.className = "fade-in";
-    screen.innerHTML = `
-    
+  // 🟢 شرط 1: كل الإمبوسترات خرجوا
+if (gameData.imposters.length === 0) {
+  renderScreen(`
+    <h2>🎉 فوز اللاعبين</h2>
+    <p>تم كشف كل الإمبوسترات</p>
 
-      <h2>🎉 فوز اللاعبين</h2>
-      <p>تم كشف كل الإمبوسترات</p>
-    `;
-    return;
-  }
+    <div class="end-actions">
+      <button onclick="startNewGame()">🔁 جيم جديد</button>
+      <button class="danger" onclick="exitGame()">🚪 خروج</button>
+    </div>
+  `, false);
+  return;
+}
+
+// 🔴 شرط 2: الإمبوسترات سيطروا عدديًا
+if (gameData.imposters.length >= gameData.players.length - gameData.imposters.length) {
+  renderScreen(`
+    <h2>😈 فوز الإمبوسترات</h2>
+    <p>سيطروا على اللعبة</p>
+
+    <div class="end-actions">
+      <button onclick="startNewGame()">🔁 جيم جديد</button>
+      <button class="danger" onclick="exitGame()">🚪 خروج</button>
+    </div>
+  `, false);
+  return;
+}
+
+// 🧠 شرط 3: الفوز بالاستنزاف (الجديد)
+if (gameData.eliminatedImposters > gameData.eliminatedPlayers) {
+  renderScreen(`
+    <h2>🎉 فوز اللاعبين</h2>
+    <p>خرج إمبوسترات أكثر من اللاعبين</p>
+
+    <div class="end-actions">
+      <button onclick="startNewGame()">🔁 جيم جديد</button>
+      <button class="danger" onclick="exitGame()">🚪 خروج</button>
+    </div>
+  `, false);
+  return;
+}
+
+if (gameData.eliminatedPlayers > gameData.eliminatedImposters) {
+  renderScreen(`
+    <h2>😈 فوز الإمبوسترات</h2>
+    <p>خرج لاعبين أكثر من الإمبوسترات</p>
+
+    <div class="end-actions">
+      <button onclick="startNewGame()">🔁 جيم جديد</button>
+      <button class="danger" onclick="exitGame()">🚪 خروج</button>
+    </div>
+  `, false);
+  return;
+}
+
 
   if (gameData.imposters.length >= gameData.players.length - gameData.imposters.length) {
     screen.className = "fade-in";
    renderScreen(`
   <h2>😈 فوز الإمبوسترات</h2>
   <p>سيطروا على اللعبة</p>
+
+  <div class="end-actions">
+    <button onclick="startNewGame()">🔁 جيم جديد</button>
+    <button class="danger" onclick="exitGame()">🚪 خروج</button>
+  </div>
 `, false);
 
     return;
@@ -1170,15 +1235,18 @@ function startNewRoundAfterTie() {
 }
 
 
+
+
+
+
 function prepareNextRound() {
   const eliminated = gameData.lastEliminated;
-
-  // حذف اللاعب
-  gameData.players.splice(eliminated, 1);
 
   regenerateImposters();
 
   // شروط النهاية
+  // حذف اللاعب
+gameData.players.splice(eliminated, 1);
 
 // ✅ فوز اللاعبين
 if (gameData.imposters.length === 0) {
@@ -1186,6 +1254,10 @@ if (gameData.imposters.length === 0) {
   renderScreen(`
   <h2>🎉 فوز اللاعبين</h2>
   <p>تم كشف كل الإمبوسترات</p>
+  <div class="end-actions">
+    <button onclick="startNewGame()">🔁 جيم جديد</button>
+    <button class="danger" onclick="exitGame()">🚪 خروج</button>
+  </div>
 `, false);
 
   return;
@@ -1197,12 +1269,17 @@ const normalPlayers =
 
 if (gameData.imposters.length >= normalPlayers) {
   screen.className = "fade-in";
-  screen.innerHTML = `
-    
-
-    <h2>😈 فوز الإمبوسترز</h2>
+  renderScreen(`
+  <h2>🎉 فوز اللاعبين</h2>
     <p>عددهم أصبح مسيطر على اللعبة</p>
-  `;
+
+  <div class="end-actions">
+    <button onclick="startNewGame()">🔁 جيم جديد</button>
+    <button class="danger" onclick="exitGame()">🚪 خروج</button>
+  </div>
+`, false);
+
+
   return;
 }
 
@@ -1343,3 +1420,29 @@ const categories = Object.keys(words);
 // تشغيل اللعبة
 loadGameState();
 
+
+function startNewGame() {
+  // إعادة ضبط حالة الجيم فقط
+  gameData.category = null;
+  gameData.currentWord = null;
+  gameData.imposters = [];
+  gameData.questions = [];
+  gameData.votes = {};
+  gameData.currentPlayerIndex = 0;
+  gameData.currentQuestionIndex = 0;
+  gameData.currentVoter = 0;
+  gameData.eliminatedImposters = 0;
+  gameData.eliminatedPlayers = 0;
+
+  // ⛔ ممنوع لمس localStorage هنا
+  // ❌ localStorage.removeItem("gameState");
+
+  showCategoryScreen();
+}
+
+
+
+function exitGame() {
+  localStorage.removeItem("gameState"); // امسح الجيم بس
+  location.reload();
+}
