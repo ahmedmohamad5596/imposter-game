@@ -2,26 +2,27 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="theme-color" content="#000000">
-<link rel="apple-touch-icon" href="icon.png">
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="theme-color" content="#f4f6fb">
   <title>لعبة الإمبوستر</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="style.css">
 </head>
-<audio id="tickSound" src="sounds/tick.mp3"></audio>
-<audio id="revealSound" src="sounds/reveal.mp3"></audio>
-
 <body>
+  <audio id="tickSound" src="sounds/tick.mp3"></audio>
+  <audio id="revealSound" src="sounds/reveal.mp3"></audio>
 
   <div class="app">
-  <button id="themeToggle" onclick="toggleTheme()">☀️</button>
-  <div id="screen"></div>
-</div>
-
+    <div class="app-bar">
+      <button class="back-btn" onclick="goBack()" style="visibility: hidden;">⬅</button>
+      <div class="app-title">لعبة الإمبوستر</div>
+      <button class="theme-btn" onclick="toggleTheme()">🌙</button>
+    </div>
+    <div id="screen" class="center-screen"></div>
+    <div id="bottom-space"></div>
+  </div>
 
   <script src="script.js"></script>
 </body>
