@@ -1,11 +1,13 @@
 let screen;
 let appStarted = false;
 let screenHistory = [];
+let selectedVotes = [];
 
 // بيانات اللعبة
 const gameData = {
   category: null,
   players: [],
+  allPlayers: [],
   impostersCount: 0,
   eliminatedImposters: 0, // 👈 عداد الإمبوسترات اللي خرجوا
   eliminatedPlayers: 0,   // 👈 عداد اللاعبين اللي خرجوا
@@ -32,44 +34,74 @@ document.addEventListener("DOMContentLoaded", () => {
     // تأمين القيم
     gameData.players = gameData.players || [];
 
-    showCategoryScreen(); // ⬅️ افتحها مباشرة للاختبار
+    showIntroScreen(); 
   });
 });
 
 
 function showLoadingScreen(nextScreen) {
-  renderScreen(`
-    <h2>لعبة الإمبوستر 🎭</h2>
+  const loadingTips = [
+    "يتم تحضير الكلمات السرية...",
+    "البحث عن الإمبوستر المختبئ...",
+    "تجهيز بطاقات اللاعبين...",
+    "شحذ ذكاء المواطنين..."
+  ];
+  
+  let randomTip = loadingTips[Math.floor(Math.random() * loadingTips.length)];
 
-    <div class="loading-bar">
-      <div class="loading-progress">
-        <span>🔥</span>
+  renderScreen(`
+    <div class="loading-container">
+      <div class="loader-wrapper">
+        <div class="main-loader">
+          <div class="circle"></div>
+          <div class="circle"></div>
+          <div class="circle"></div>
+          <div class="ghost-icon">🕵️‍♂️</div>
+        </div>
+      </div>
+      
+      <div class="loading-text-wrapper">
+        <h2 class="loading-title">انتظر قليلاً</h2>
+        <p id="loading-tip" class="loading-tip">${randomTip}</p>
+      </div>
+
+      <div class="modern-progress-bar">
+        <div class="progress-fill"></div>
       </div>
     </div>
   `, false);
 
-  const progress = document.querySelector(".loading-progress");
-  let value = 0;
+  const fill = document.querySelector(".progress-fill");
+  const tipElement = document.getElementById("loading-tip");
+  let width = 0;
 
-  const interval = setInterval(() => {
-    value += 5;
-    progress.style.width = value + "%";
-
-    if (value >= 100) {
-      clearInterval(interval);
-
-      // ⬅️ هنا الحل
+  // تغيير النص أثناء التحميل ليعطي إيحاء بالاحترافية
+  const tipInterval = setInterval(() => {
+    if (width < 100) {
+      tipElement.style.opacity = 0;
       setTimeout(() => {
-        if (typeof nextScreen === "function") {
-          nextScreen();
-        } else {
-          console.error("nextScreen is not a function");
-        }
+        tipElement.innerText = loadingTips[Math.floor(Math.random() * loadingTips.length)];
+        tipElement.style.opacity = 1;
       }, 300);
     }
-  }, 80);
-}
+  }, 1500);
 
+  // ... الكود السابق للدالة ...
+
+  const interval = setInterval(() => {
+    width += 2; // نزيد 2% في كل مرة
+    if (fill) fill.style.width = width + "%";
+
+    if (width >= 100) {
+      clearInterval(interval);
+      clearInterval(tipInterval); // إيقاف تغيير النص
+      
+      setTimeout(() => {
+        if (typeof nextScreen === "function") nextScreen();
+      }, 400); // تأخير بسيط جداً قبل الانتقال لإعطاء شعور بالاكتمال
+    }
+  }, 80); // 80ms * 50 خطوة = 4000ms (4 ثوانٍ)
+}
 
 
 
@@ -397,7 +429,6 @@ const words = {
 
 
 
-
 function renderScreen(html, saveHistory = true) {
   if (saveHistory && screen.innerHTML.trim() !== "") {
     screenHistory.push({
@@ -406,13 +437,25 @@ function renderScreen(html, saveHistory = true) {
     });
   }
 
-  screen.className = "fade-in";
-  screen.innerHTML = `
-    ${screenHistory.length > 0 ? `
-      <button class="back-btn" onclick="goBack()">⬅️ رجوع</button>
-    ` : ""}
-    ${html}
-  `;
+  setBackAction(screenHistory.length ? goBack : null);
+
+  screen.className = "screen-slide";
+  screen.innerHTML = html;
+}
+
+
+
+function setBackAction(handler = null) {
+  const btn = document.querySelector(".back-btn");
+  if (!btn) return;
+
+  if (handler) {
+    btn.style.visibility = "visible";
+    btn.onclick = handler;
+  } else {
+    btn.style.visibility = "hidden";
+    btn.onclick = null;
+  }
 }
 
 
@@ -423,7 +466,8 @@ function goBack() {
 
   Object.assign(gameData, previous.state);
 
-  screen.className = "fade-in";
+  screen.className = "screen-slide";
+
   screen.innerHTML = previous.html;
 }
 
@@ -437,18 +481,54 @@ function getRandomWord(category) {
   lastWord = word;
   return word;
 }
+const categories = Object.keys(words);
+
+
+function showIntroScreen() {
+  renderScreen(`
+  <div class="center-screen intro-screen">
+    <div class="card intro-card">
+      <p class="intro-line">📌 <b>الكلمة السرية:</b> تم اختيار كلمة لكل اللاعبين.</p>
+      <p class="intro-line">😈 <b>الإمبوستر:</b> لا يعرف الكلمة وعليه التخفي.</p>
+      <p class="intro-line">🗣️ <b>الأسئلة:</b> اسألوا بعضكم بذكاء لكشف الخائن.</p>
+      <p class="intro-line">🗳️ <b>التصويت:</b> اتفقوا على إخراج المشتبه به.</p>
+    </div>
+
+    <button class="primary-btn intro-btn pulse" onclick="showCategoryScreen()">
+      ▶ ابدأ اللعبة الآن
+    </button>
+  </div>
+`, false);
+}
+
+
 
 // شاشة اختيار القسم
 function showCategoryScreen() {
+  // مصفوفة الأقسام موجودة لديك بالفعل في متغير categories
   renderScreen(`
-    <h2>اختر القسم</h2>
-    ${categories.map(cat => `
-      <div class="card" onclick="selectCategory('${cat}')">
-        ${cat}
+    <div class="center-screen">
+      <h2 style="text-align: center; margin-bottom: 10px;">اختر القسم</h2>
+      <p style="text-align: center; color: var(--muted); margin-bottom: 20px;">حدد موضوع الكلمات السرية</p>
+      
+      <div class="categories-grid">
+        ${categories.map(cat => {
+          // فصل الإيموجي عن النص إذا أردت تنسيقاً أفضل
+          const icon = cat.split(' ')[0];
+          const name = cat.split(' ').slice(1).join(' ');
+          
+          return `
+            <div class="card category-card" onclick="selectCategory('${cat}')">
+              <span class="cat-icon">${icon}</span>
+              <span class="cat-name">${name}</span>
+            </div>
+          `;
+        }).join("")}
       </div>
-    `).join("")}
-  `);
+    </div>
+  `, true);
 }
+
 
 
 
@@ -469,18 +549,52 @@ function selectCategory(category) {
 ===================== */
 function showPlayersScreen() {
   renderScreen(`
-    <h2>إدخال أسماء اللاعبين</h2>
+    <div class="screen-slide">
+      <h2 style="text-align: center;">إدخال أسماء اللاعبين 👥</h2>
+      
+      <input id="playerName" class="input-box" placeholder="اكتب اسم اللاعب هنا..." 
+             onkeypress="if(event.key==='Enter') addPlayer()">
 
-    <input id="playerName" placeholder="اسم اللاعب" />
+      <button class="primary-btn wide-btn" onclick="addPlayer()">➕ إضافة لاعب</button>
 
-    <button onclick="addPlayer()">➕ إضافة لاعب</button>
+      <div id="playersList" class="players-grid">
+        </div>
 
-    <div id="playersList" class="players-grid"></div>
+      <button class="primary-btn wide-btn" onclick="showImposterScreen()" 
+              style="background: #27ae60; margin-top: 10px;">التالي ➡️</button>
+    </div>
+  `, true);
 
-    <button onclick="showImposterScreen()">التالي</button>
-  `);
+  renderPlayers(); // تحديث القائمة فوراً
+}
 
-  renderPlayers();
+// دالة إضافة اللاعب المحسنة
+function addPlayer() {
+  const input = document.getElementById("playerName");
+  const name = input.value.trim();
+  
+  if (name === "") return;
+  
+  // إضافة اللاعب للمصفوفة
+  gameData.allPlayers.push({ name: name, isOut: false });
+  input.value = ""; // مسح الخانة
+  input.focus();
+  
+  renderPlayers(); // إعادة رسم القائمة
+}
+
+// دالة عرض قائمة اللاعبين المحسنة
+function renderPlayers() {
+  const list = document.getElementById("playersList");
+  if (!list) return;
+
+  list.innerHTML = gameData.allPlayers.map((player, index) => `
+    <div class="player-row">
+      <span>👤 ${player.name}</span>
+      <button class="danger-btn" onclick="removePlayer(${index})" 
+              style="padding: 5px 10px; font-size: 12px; border-radius: 8px;">حذف</button>
+    </div>
+  `).join("");
 }
 
 
@@ -503,27 +617,69 @@ function showAvatarSelection() {
   const name = gameData.pendingPlayerName;
 
   renderScreen(`
-    <h2>اختار أفاتار لـ ${name}</h2>
-
-    <select id="avatarSelect" onchange="previewAvatar()">
-      <option value="" disabled selected>
-        -- اختر أفاتار --
-      </option>
-      ${AVATARS_DB.map(a => `
-        <option value="${a.id}">
-          ${a.emoji} ${a.name}
-        </option>
-      `).join("")}
-    </select>
-
-    <div class="avatar-preview">
-      <img id="avatarPreview" class="avatar" style="display:none;">
+  <div class="center-screen avatar-selection-screen">
+    <h2 class="fade-in">اختر شخصية لـ <span style="color:var(--accent)">${name}</span></h2>
+    
+    <div class="avatar-grid">
+      ${AVATARS_DB.map(a => {
+        // إنشاء رابط المعاينة فوراً لكل أفاتار
+        const previewUrl = getAvatar(a.set, `${name}_${a.id}`);
+        return `
+          <div class="avatar-item" onclick="selectAvatarVisual('${a.id}', this)">
+            <img src="${previewUrl}" alt="${a.name}">
+            <span>${a.emoji} ${a.name}</span>
+          </div>
+        `;
+      }).join("")}
     </div>
 
-    <button onclick="confirmAvatar()">تأكيد ✅</button>
-  `);
+    <input type="hidden" id="selectedAvatarId" value="">
+
+    <button class="primary-btn wide-btn confirm-btn" onclick="confirmAvatarVisual()">
+      ✅ تأكيد الشخصية
+    </button>
+  </div>
+`, false);
 }
 
+// دالة لاختيار الأفاتار بصرياً
+function selectAvatarVisual(avatarId, element) {
+  // إزالة التحديد من الجميع
+  document.querySelectorAll('.avatar-item').forEach(el => el.classList.remove('selected'));
+  // إضافة تحديد للعنصر المختار
+  element.classList.add('selected');
+  // تخزين القيمة في الحقل المخفي
+  document.getElementById('selectedAvatarId').value = avatarId;
+}
+
+// دالة التأكيد الجديدة
+function confirmAvatarVisual() {
+  const avatarId = document.getElementById('selectedAvatarId').value;
+  if (!avatarId) {
+    alert("من فضلك اختر شخصية أولاً!");
+    return;
+  }
+  
+  // محاكاة اختيار القيمة في الكود القديم لتجنب كسر الوظائف الأخرى
+  const avatar = AVATARS_DB.find(a => a.id === avatarId);
+  const name = gameData.pendingPlayerName;
+  const seed = `${name}_${avatar.id}`;
+
+  const playerObj = {
+    name,
+    avatarId: avatar.id,
+    avatarSeed: seed,
+    avatar: getAvatar(avatar.set, seed),
+    imposterCount: 0,
+    isOut: false 
+  };
+
+  gameData.players.push({ ...playerObj });
+  gameData.allPlayers.push({ ...playerObj });
+  delete gameData.pendingPlayerName;
+  savePlayers();
+  showPlayersScreen();
+}
 
 
 
@@ -558,8 +714,6 @@ function getAvatar(set, seed) {
 
 
 
-
-
 function confirmAvatar() {
   const select = document.getElementById("avatarSelect");
   if (!select.value) {
@@ -576,19 +730,25 @@ function confirmAvatar() {
   const name = gameData.pendingPlayerName;
   const seed = `${name}_${avatar.id}`;
 
-  gameData.players.push({
-    name,
-    avatarId: avatar.id,
-    avatarSeed: seed,
-    avatar: getAvatar(avatar.set, seed)
+  const playerObj = {
+  name,
+  avatarId: avatar.id,
+  avatarSeed: seed,
+  avatar: getAvatar(avatar.set, seed),
+  imposterCount: 0,
+  isOut: false   // 👈 مهم جدًا
+};
 
-  });
+
+
+  // 👇 الإضافة الصح
+  gameData.players.push({ ...playerObj });
+  gameData.allPlayers.push({ ...playerObj });
 
   delete gameData.pendingPlayerName;
   savePlayers();
   showPlayersScreen();
 }
-
 
 
 
@@ -645,10 +805,14 @@ function closeNameEditor() {
 
 
 function removePlayer(index) {
+  // الحذف الفعلي من المصفوفة لكي يختفي من القائمة تماماً
   gameData.players.splice(index, 1);
+  gameData.allPlayers.splice(index, 1);
   savePlayers();
   renderPlayers();
 }
+
+
 
 function renderPlayers() {
   const list = document.getElementById("playersList");
@@ -660,9 +824,10 @@ function renderPlayers() {
         <div class="player-info">
           <img src="${player.avatar}" class="avatar">
           <span class="editable-name"
-      onclick="editPlayerName(event, ${index})">
-  ${player.name}
-</span>
+      onclick="openNameEditor(event, ${index})">
+
+      ${player.name}
+      </span>
 
         </div>
         <button onclick="removePlayer(${index})">❌</button>
@@ -676,31 +841,80 @@ function renderPlayers() {
    المرحلة الجاية (مؤقت)
 ===================== */
 function showImposterScreen() {
-  const maxImposters = Math.floor(gameData.players.length / 2);
+  const maxImposters = Math.floor(gameData.allPlayers.length / 1.5);
 
-  if (gameData.players.length < 3) {
-    alert("لازم على الأقل 3 لاعبين");
+  if (gameData.allPlayers.length < 3) {
+    alert("عفواً، يجب إضافة 3 لاعبين على الأقل للبدء");
     return;
   }
 
-  gameData.impostersCount = 1;
+  // القيمة الابتدائية
+  gameData.impostersCount = gameData.impostersCount || 1;
 
   renderScreen(`
-    <h2>اختيار عدد الإمبوسترات</h2>
+    <div class="screen-slide" style="text-align: center;">
+      <h2>تحديد عدد الخونة 😈</h2>
+      <p style="color: var(--muted);">كم إمبوستر سيكون في اللعبة؟</p>
 
-    <div class="card">
-      <button onclick="changeImposters(-1)">➖</button>
-      <span id="imposterCount">${gameData.impostersCount}</span>
-      <button onclick="changeImposters(1)">➕</button>
+      <div class="imposter-card">
+        <button class="step-btn" onclick="changeImposters(-1)">➖</button>
+        <span id="imposterCount" class="count-display">${gameData.impostersCount}</span>
+        <button class="step-btn" onclick="changeImposters(1)">➕</button>
+      </div>
+
+      <p style="font-size: 14px;">الحد الأقصى المسموح به: ${maxImposters}</p>
+
+      <button class="primary-btn wide-btn" onclick="startGame()" 
+              style="font-size: 20px; margin-top: 30px;">ابدأ اللعبة 🎮</button>
     </div>
+  `, true);
+}
 
-    <p>الحد الأقصى: ${maxImposters}</p>
+// دالة تغيير العدد مع الحماية
+function changeImposters(val) {
+  const maxImposters = Math.floor(gameData.allPlayers.length / 1.5);
+  let current = gameData.impostersCount;
+  let newVal = current + val;
 
-    <button onclick="startGame()">ابدأ اللعبة 🎮</button>
+  if (newVal >= 1 && newVal <= maxImposters) {
+    gameData.impostersCount = newVal;
+    document.getElementById("imposterCount").innerText = newVal;
+  }
+}
+
+
+
+function showImpostersCountScreen() {
+  renderScreen(`
+    <div class="center-screen result-screen imposters-screen">
+
+      <div class="result-header">
+        <span class="result-emoji">🕵️‍♂️</span>
+        <h2 class="result-title">اختيار عدد الإمبوسترات</h2>
+        <p class="result-subtitle">
+          اختر عدد الإمبوسترات المناسب لعدد اللاعبين
+        </p>
+      </div>
+
+      <div class="imposters-options">
+        ${generateImpostersButtons()}
+      </div>
+
+      <div class="result-card">
+        العدد المختار:
+        <b id="imposter-count-value">
+          ${gameData.impostersCount ?? "—"}
+        </b>
+      </div>
+
+      <button class="primary-btn confirm-btn"
+        onclick="confirmImpostersCount()">
+        تأكيد ✔️
+      </button>
+
+    </div>
   `);
 }
-  
-
 
 
 
@@ -717,128 +931,136 @@ function changeImposters(value) {
 }
 
 
-function startGame() {
-  // اختيار كلمة عشوائية
-  const categoryWords = words[gameData.category];
-  gameData.currentWord = getRandomWord(gameData.category);
 
-  // اختيار إمبوسترات عشوائيين
-  gameData.imposters = [];
-  const indices = [...Array(gameData.players.length).keys()];
+function pickImpostersWeighted() {
+  const candidates = gameData.players
+  .map((p, index) => ({ p, index }))
+  .filter(o => !o.p.isOut)
+  .map(o => ({
+    index: o.index,
+    weight: Math.max(1, 8 - (o.p.imposterCount || 0))
+  }));
 
-  while (gameData.imposters.length < gameData.impostersCount) {
-    const rand = indices.splice(
-      Math.floor(Math.random() * indices.length),
-      1
-    )[0];
-    gameData.imposters.push(rand);
+
+  const picked = [];
+
+  while (picked.length < gameData.impostersCount) {
+    const totalWeight = candidates.reduce((s, c) => s + c.weight, 0);
+    let rand = Math.random() * totalWeight;
+
+    for (let i = 0; i < candidates.length; i++) {
+      rand -= candidates[i].weight;
+      if (rand <= 0) {
+        picked.push(candidates[i].index);
+        candidates.splice(i, 1); // منع التكرار في نفس الجولة
+        break;
+      }
+    }
   }
 
+  return picked;
+}
+
+
+
+
+function startGame() {
+  // 1. اختيار كلمة عشوائية بناءً على القسم المختار
+  if (!gameData.category) {
+      alert("الرجاء اختيار القسم أولاً");
+      return showCategoryScreen();
+  }
+  gameData.currentWord = getRandomWord(gameData.category);
+
+  // 2. اختيار الإمبوسترات
+  gameData.imposters = pickImpostersWeighted();
+
+  // 3. تحديث عداد مرات الإمبوستر لكل لاعب (للعدالة في المرات القادمة)
+  gameData.imposters.forEach(i => {
+    if(gameData.players[i]) {
+        gameData.players[i].imposterCount = (gameData.players[i].imposterCount || 0) + 1;
+    }
+  });
+
+  // 4. تصفير مؤشر اللاعبين للبدء بكشف الأدوار
   gameData.currentPlayerIndex = 0;
+  
+  // 5. حفظ الحالة
   localStorage.setItem("gameState", JSON.stringify(gameData));
-  showPlayerReveal();
+
+  // 6. 💡 الانتقال للشاشة التالية (هذا ما كان ينقصك)
+  showPlayerReveal(); 
+}
+
+
+
+function showGameStartReady() {
+  renderScreen(`
+    <div class="center-screen result-screen">
+       <div class="result-header">
+        <span class="result-emoji">🏁</span>
+        <h2 class="result-title">الكل عرف دوره؟</h2>
+        <p>الآن ستبدأ مرحلة الأسئلة والنقاش.</p>
+      </div>
+      <button class="primary-btn wide-btn pulse" onclick="showQuestionPhase()">
+        ابدأ النقاش 🗣️
+      </button>
+    </div>
+  `, false);
+}
+
+
+
+function showCountdownBeforeReveal() {
+  let count = 3;
+  renderScreen(`
+    <div class="center-screen">
+      <h1 id="countdown" style="font-size: 80px; color: var(--accent);">${count}</h1>
+      <p>سيتم كشف الخونة الآن...</p>
+    </div>
+  `, false);
+  
+  const timer = setInterval(() => {
+    count--;
+    if(count > 0) {
+      document.getElementById("countdown").innerText = count;
+    } else {
+      clearInterval(timer);
+      showImposterRevealThenNextRound();
+    }
+  }, 1000);
 }
 
 
 function generateQuestions() {
   gameData.questions = [];
+  
+  // تصفية اللاعبين الموجودين حالياً فقط
+  const activePlayersIndices = gameData.players
+    .map((p, i) => p.isOut ? null : i)
+    .filter(i => i !== null);
 
-  const totalPlayers = gameData.players.length;
-  const maxQuestionsPerPlayer = 2;
+  if (activePlayersIndices.length < 2) return;
 
-  const askedCount = Array(totalPlayers).fill(0);
-
-  for (let i = 0; i < totalPlayers; i++) {
-    let availableTargets = [];
-
-    for (let j = 0; j < totalPlayers; j++) {
-      if (i !== j) availableTargets.push(j);
-    }
-
-    // خلط عشوائي
-    availableTargets.sort(() => Math.random() - 0.5);
-
-    let questionsAsked = 0;
-
-    for (let target of availableTargets) {
-      if (questionsAsked >= maxQuestionsPerPlayer) break;
-
+  activePlayersIndices.forEach(voterIndex => {
+    // اختيار شخص عشوائي ليسأل (غير نفسه)
+    let targets = activePlayersIndices.filter(i => i !== voterIndex);
+    
+    // خلط الأهداف واختيار واحد أو اثنين
+    targets.sort(() => Math.random() - 0.5);
+    
+    // إضافة سؤالين لكل لاعب مثلاً
+    for (let i = 0; i < Math.min(2, targets.length); i++) {
       gameData.questions.push({
-  from: i,
-  to: target
-});
-
-
-      askedCount[target]++;
-      questionsAsked++;
+        from: voterIndex,
+        to: targets[i]
+      });
     }
-  }
+  });
 
-  // خلط نهائي للأسئلة
+  // خلط ترتيب الأسئلة الكلي لكي لا يسأل الجميع بالترتيب
   gameData.questions.sort(() => Math.random() - 0.5);
-
-  gameData.currentQuestionIndex = 0;
 }
-
-
-
-function showPlayerReveal() {
-  const playerName = gameData.players[gameData.currentPlayerIndex].name;
-
-  renderScreen(`
-    <h2>📱 الدور على</h2>
-    <div class="card">${playerName}</div>
-    <button onclick="revealRole()">عرض الدور</button>
-  `, false);
-}
-
-
-function editPlayerName(index) {
-  const newName = prompt(
-    "اكتب الاسم الجديد:",
-    gameData.players[index].name
-  );
-
-  if (!newName || !newName.trim()) return;
-
-  gameData.players[index].name = newName.trim();
-  savePlayers();
-  renderPlayers();
-}
-
-
-function revealRole() {
-  const index = gameData.currentPlayerIndex;
-  const isImposter = gameData.imposters.includes(index);
-
-  let extraInfo = "";
-
-  if (isImposter && gameData.imposters.length > 1) {
-    const otherImposters = gameData.imposters
-      .filter(i => i !== index)
-      .map(i => gameData.players[i].name);
-
-    extraInfo = `
-      <p>👀 الإمبوسترز معاك:</p>
-      <div class="card">
-        ${otherImposters.join(" ، ")}
-      </div>
-    `;
-  }
-
-  renderScreen(`
-    <h2>${isImposter ? "🚨 إمبوستر" : "✅ كلمتك"}</h2>
-
-    <div class="card" style="font-size: 24px">
-      ${isImposter ? "أنت إمبوستر 😈" : gameData.currentWord}
-    </div>
-
-    ${extraInfo}
-
-    <button onclick="nextPlayer()">التالي</button>
-  `, false);
-}
-
 
 
 
@@ -849,30 +1071,38 @@ function nextPlayer() {
   if (gameData.currentPlayerIndex < gameData.players.length) {
     showPlayerReveal();
   } else {
-  generateQuestions();
-  showQuestionPhase(); // شاشة انتقال
+    // إذا انتهى كل اللاعبين، ننتقل لشاشة "الأسئلة" أو "بدء النقاش"
+    showGameStartReady(); 
+  }
 }
 
-}
 
 function showQuestionPhase() {
   renderScreen(`
-    <h2>🗣️ مرحلة الأسئلة</h2>
+    <div class="center-screen result-screen">
+      <div class="result-header">
+        <span class="result-emoji">🗣️</span>
+        <h2 class="result-title">مرحلة الأسئلة</h2>
+      </div>
 
-    <div class="card pulse">
-      كل لاعب له <b>سؤالين فقط</b>
+      <div class="result-card">
+        ⏱️ كل لاعب له <b>سؤالين فقط</b>
+      </div>
+
+      <div class="result-card">
+        🚫 ممنوع فتح الموبايل إلا وقت دورك
+      </div>
+
+      <div class="hint-box">
+        ❗ أي لاعب خرج من الجولة يتم تجاهله تلقائيًا
+      </div>
+
+      <button class="primary-btn wide-btn pulse" onclick="startQuestions()">
+        ابدأ الجولة ▶
+      </button>
     </div>
-
-    <p>🚫 ممنوع فتح الموبايل غير وقت دورك</p>
-
-    <button onclick="showQuestion()">ابدأ ▶️</button>
   `);
 }
-
-
-
-
-
 
 function showQuestion() {
   const q = gameData.questions[gameData.currentQuestionIndex];
@@ -883,47 +1113,37 @@ function showQuestion() {
   }
 
   const fromPlayer = gameData.players[q.from];
-  const toPlayer   = gameData.players[q.to];
+  const toPlayer = gameData.players[q.to];
 
   renderScreen(`
-    <h2>🗣️ مرحلة الأسئلة</h2>
-
-    <div class="card">
-      <div class="player-info">
-        <img src="${fromPlayer.avatar}" class="avatar">
-        <b>${fromPlayer.name}</b>
+    <div class="center-screen question-phase">
+      <div class="phase-header">
+        <span class="badge">سؤال رقم ${gameData.currentQuestionIndex + 1}</span>
+        <h2>مرحلة النقاش 🗣️</h2>
       </div>
 
-      <p>يسأل</p>
-
-      <div class="player-info">
-        <img src="${toPlayer.avatar}" class="avatar">
-        <b>${toPlayer.name}</b>
+      <div class="question-card">
+        <div class="player-box from">
+          <img src="${fromPlayer.avatar}" class="avatar">
+          <span>${fromPlayer.name}</span>
+        </div>
+        
+        <div class="arrow-down">⬇️ يسأل ⬇️</div>
+        
+        <div class="player-box to">
+          <img src="${toPlayer.avatar}" class="avatar">
+          <span>${toPlayer.name}</span>
+        </div>
       </div>
+
+      <button class="primary-btn wide-btn" onclick="nextQuestion()">
+        السؤال التالي ➡️
+      </button>
     </div>
-
-    <button onclick="nextQuestion()">التالي ▶️</button>
-
-    ${
-      canShowEarlyVote()
-        ? `<button class="vote-btn" onclick="startVoting()">
-             🗳️ تصويت الآن
-           </button>`
-        : ""
-    }
   `);
 }
 
 
-
-let selectedVotes = [];
-
-function canShowEarlyVote() {
-  return (
-    gameData.currentQuestionIndex >=
-    Math.floor(gameData.questions.length / 2)
-  );
-}
 
 
 function nextQuestion() {
@@ -938,9 +1158,15 @@ function nextQuestion() {
 
 
 function startVoting() {
+  if (!gameData.impostersCount || gameData.impostersCount < 1) {
+    alert("خطأ: عدد الإمبوسترات غير صالح");
+    return;
+  }
+
   gameData.votes = {};
   gameData.currentVoter = 0;
   showVoteTurn();
+  
 }
 
 function toggleVote(card) {
@@ -963,151 +1189,51 @@ function toggleVote(card) {
 
 
 
-function showEliminationResult(eliminated) {
-  const eliminatedNames =
-    eliminated.map(i => gameData.players[i].name);
-
-  const wasImposter = eliminated.some(i =>
-    gameData.imposters.includes(i)
-  );
-
-  renderScreen(`
-    <h2>❌ خرج من اللعبة</h2>
-
-    <div class="card">
-      ${eliminatedNames.join(" ، ")}
-    </div>
-
-    <p>
-      ${wasImposter ? "🔥 كان إمبوستر!" : "❌ لم يكن إمبوستر"}
-    </p>
-
-    <button onclick="nextRound(${JSON.stringify(eliminated)})">
-      الجولة التالية 🔁
-    </button>
-  `, false);
-}
 
 
 
 
-
-
-function nextRound(eliminated) {
-  eliminated.forEach(i => {
-  if (gameData.imposters.includes(i)) {
-    gameData.eliminatedImposters++;
-  } else {
-    gameData.eliminatedPlayers++;
-  }
-});
-
-  // حذف اللاعبين
-  eliminated.sort((a, b) => b - a);
-  eliminated.forEach(i => gameData.players.splice(i, 1));
-
-  // تحديث الإمبوسترات
-  gameData.imposters = gameData.imposters
-    .filter(i => !eliminated.includes(i))
-    .map(i => i - eliminated.filter(e => e < i).length);
-
-  // شروط النهاية
-  // 🟢 شرط 1: كل الإمبوسترات خرجوا
-if (gameData.imposters.length === 0) {
-  renderScreen(`
-    <h2>🎉 فوز اللاعبين</h2>
-    <p>تم كشف كل الإمبوسترات</p>
-
-    <div class="end-actions">
-      <button onclick="startNewGame()">🔁 جيم جديد</button>
-      <button class="danger" onclick="exitGame()">🚪 خروج</button>
-    </div>
-  `, false);
-  return;
-}
-
-// 🔴 شرط 2: الإمبوسترات سيطروا عدديًا
-if (gameData.imposters.length >= gameData.players.length - gameData.imposters.length) {
-  renderScreen(`
-    <h2>😈 فوز الإمبوسترات</h2>
-    <p>سيطروا على اللعبة</p>
-
-    <div class="end-actions">
-      <button onclick="startNewGame()">🔁 جيم جديد</button>
-      <button class="danger" onclick="exitGame()">🚪 خروج</button>
-    </div>
-  `, false);
-  return;
-}
-
-// 🧠 شرط 3: الفوز بالاستنزاف (الجديد)
-if (gameData.eliminatedImposters > gameData.eliminatedPlayers) {
-  renderScreen(`
-    <h2>🎉 فوز اللاعبين</h2>
-    <p>خرج إمبوسترات أكثر من اللاعبين</p>
-
-    <div class="end-actions">
-      <button onclick="startNewGame()">🔁 جيم جديد</button>
-      <button class="danger" onclick="exitGame()">🚪 خروج</button>
-    </div>
-  `, false);
-  return;
-}
-
-if (gameData.eliminatedPlayers > gameData.eliminatedImposters) {
-  renderScreen(`
-    <h2>😈 فوز الإمبوسترات</h2>
-    <p>خرج لاعبين أكثر من الإمبوسترات</p>
-
-    <div class="end-actions">
-      <button onclick="startNewGame()">🔁 جيم جديد</button>
-      <button class="danger" onclick="exitGame()">🚪 خروج</button>
-    </div>
-  `, false);
-  return;
-}
-
-
-  if (gameData.imposters.length >= gameData.players.length - gameData.imposters.length) {
-    screen.className = "fade-in";
-   renderScreen(`
-  <h2>😈 فوز الإمبوسترات</h2>
-  <p>سيطروا على اللعبة</p>
-
-  <div class="end-actions">
-    <button onclick="startNewGame()">🔁 جيم جديد</button>
-    <button class="danger" onclick="exitGame()">🚪 خروج</button>
-  </div>
-`, false);
-
-    return;
-  }
-
-  // جولة جديدة
-  gameData.impostersCount = gameData.imposters.length;
+function startNextRound() {
   startGame();
+  showPlayerReveal();
 }
+
 
 
 
 function savePlayers() {
-  localStorage.setItem( "imposterPlayers", JSON.stringify(gameData.players) );
+  localStorage.setItem("imposterPlayers", JSON.stringify(gameData.allPlayers));
   localStorage.setItem("gameState", JSON.stringify(gameData));
-
 }
+
 
 
 
 function loadPlayers() {
   const saved = localStorage.getItem("imposterPlayers");
   if (saved) {
-    gameData.players = JSON.parse(saved);
+    const data = JSON.parse(saved);
+    gameData.players = data.map(p => ({ ...p }));
+    gameData.allPlayers = data.map(p => ({ ...p }));
   }
 }
 
 
 
+
 function showVoteTurn() {
+  while (
+    gameData.currentVoter < gameData.players.length &&
+    gameData.players[gameData.currentVoter].isOut
+  ) {
+    gameData.currentVoter++;
+  }
+
+  if (gameData.currentVoter >= gameData.players.length) {
+    showVoteResult();
+    return;
+  }
+
   const voter = gameData.players[gameData.currentVoter];
 
   renderScreen(`
@@ -1135,7 +1261,9 @@ function renderVoteOptions() {
   selectedVotes = [];
 
   gameData.players.forEach((player, index) => {
-    if (index === gameData.currentVoter) return;
+  if (player.isOut) return;
+  if (index === gameData.currentVoter) return;
+
 
     list.innerHTML += `
       <div class="card vote-card"
@@ -1154,75 +1282,89 @@ function confirmVote() {
   const requiredVotes = gameData.impostersCount;
 
   if (selectedVotes.length !== requiredVotes) {
-    alert(`لازم تختار ${requiredVotes} لاعب${requiredVotes > 1 ? "ين" : ""}`);
+    alert(`لازم تختار ${requiredVotes} لاعب`);
     return;
   }
 
   gameData.votes[gameData.currentVoter] = [...selectedVotes];
-  gameData.currentVoter++;
+
+  do {
+    gameData.currentVoter++;
+  } while (
+    gameData.currentVoter < gameData.players.length &&
+    gameData.players[gameData.currentVoter].isOut
+  );
+
   localStorage.setItem("gameState", JSON.stringify(gameData));
 
   if (gameData.currentVoter < gameData.players.length) {
-    showVoteTurn();
+    showVoteTurn();      // 👈 المصوّت التالي
   } else {
-    showVoteResult();
+    showVoteResult();   // 👈 نهاية التصويت
   }
 }
 
 
 
+function setImpostersCount(count, btn) {
+  gameData.impostersCount = count;
+
+  const valueEl = document.getElementById("imposter-count-value");
+  if (valueEl) valueEl.innerText = count;
+
+  document
+    .querySelectorAll(".imposter-btn")
+    .forEach(b => b.classList.remove("active"));
+
+  btn.classList.add("active");
+}
 
 
-function showVoteResult() {
-  const voteCount = {};
 
-  Object.values(gameData.votes).forEach(votedList => {
-    votedList.forEach(i => {
-      voteCount[i] = (voteCount[i] || 0) + 1;
-    });
-  });
+function confirmImpostersCount() {
+  const count = gameData.impostersCount;
+  const alivePlayers = gameData.players.filter(p => !p.isOut).length;
+const maxAllowed = alivePlayers - 1;
 
-  const entries = Object.entries(voteCount);
-  const maxVotes = Math.max(...entries.map(e => e[1]));
 
-  const topPlayers = entries
-    .filter(e => e[1] === maxVotes)
-    .map(e => Number(e[0]));
-
-  // ⚖️ تعادل
-  if (topPlayers.length > 1) {
-    renderScreen(`
-      <h2>⚖️ تعادل في التصويت</h2>
-
-      <div class="card">
-        لا يوجد لاعب خرج من الجولة
-      </div>
-
-      <p>سيتم بدء جولة جديدة</p>
-
-      <button onclick="showCountdownBeforeReveal()">كشف الإمبوسترات 👀</button>
-    `, false);
+  if (!count || count < 1 || count > maxAllowed) {
+    screen.classList.add("shake");
+    setTimeout(() => screen.classList.remove("shake"), 400);
     return;
   }
 
-  const eliminated = topPlayers[0];
-  gameData.lastEliminated = eliminated;
+  startGame();
+  showPlayerReveal();
+}
 
-  const wasImposter = gameData.imposters.includes(eliminated);
 
-  renderScreen(`
-    <h2>📢 نتيجة التصويت</h2>
+function startQuestions() {
+  // 1. توليد الأسئلة أولاً لتعبئة المصفوفة
+  generateQuestions(); 
+  
+  // 2. تصفير العداد للبدء من أول سؤال
+  gameData.currentQuestionIndex = 0;
+  
+  // 3. عرض شاشة الأسئلة
+  showQuestion();
+}
 
-    <div class="card">
-      ❌ خرج: <b>${gameData.players[eliminated].name}</b>
-    </div>
+function generateImpostersButtons() {
+  const alivePlayers = gameData.players.filter(p => !p.isOut).length;
+const maxAllowed = alivePlayers - 1;
 
-    <p>
-      ${wasImposter ? "🔥 كان إمبوستر" : "❌ لم يكن إمبوستر"}
-    </p>
+  let html = "";
 
-    <button onclick="showCountdownBeforeReveal()">كشف الإمبوسترات 👀</button>
-  `, false);
+  for (let i = 1; i <= maxAllowed; i++) {
+    html += `
+      <button class="imposter-btn"
+        onclick="setImpostersCount(${i}, this)">
+        ${i}
+      </button>
+    `;
+  }
+
+  return html;
 }
 
 
@@ -1234,59 +1376,6 @@ function startNewRoundAfterTie() {
   startNextRound();
 }
 
-
-
-
-
-
-function prepareNextRound() {
-  const eliminated = gameData.lastEliminated;
-
-  regenerateImposters();
-
-  // شروط النهاية
-  // حذف اللاعب
-gameData.players.splice(eliminated, 1);
-
-// ✅ فوز اللاعبين
-if (gameData.imposters.length === 0) {
-  screen.className = "fade-in";
-  renderScreen(`
-  <h2>🎉 فوز اللاعبين</h2>
-  <p>تم كشف كل الإمبوسترات</p>
-  <div class="end-actions">
-    <button onclick="startNewGame()">🔁 جيم جديد</button>
-    <button class="danger" onclick="exitGame()">🚪 خروج</button>
-  </div>
-`, false);
-
-  return;
-}
-
-// 🔴 فوز الإمبوسترز (الشرط الجديد الصحيح)
-const normalPlayers =
-  gameData.players.length - gameData.imposters.length;
-
-if (gameData.imposters.length >= normalPlayers) {
-  screen.className = "fade-in";
-  renderScreen(`
-  <h2>🎉 فوز اللاعبين</h2>
-    <p>عددهم أصبح مسيطر على اللعبة</p>
-
-  <div class="end-actions">
-    <button onclick="startNewGame()">🔁 جيم جديد</button>
-    <button class="danger" onclick="exitGame()">🚪 خروج</button>
-  </div>
-`, false);
-
-
-  return;
-}
-
-localStorage.setItem("gameState", JSON.stringify(gameData));
-
-  startNextRound();
-}
 
 
 
@@ -1308,23 +1397,66 @@ function regenerateImposters() {
 
 
 
+/* =====================
+   تعديل شاشات الكشف / النتائج
+===================== */
 
-function showImposterRevealThenNextRound() {
-  const impostersNames = gameData.imposters
-    .map(i => gameData.players[i]?.name)
-    .filter(Boolean)
-    .join(" ، ");
+function revealRole() {
+  const currentPlayerIndex = gameData.currentPlayerIndex;
+  const isImposter = gameData.imposters.includes(currentPlayerIndex);
+  
+  let content = "";
+  
+  if (isImposter) {
+    // جلب أسماء كل الإمبوسترات ما عدا اللاعب الحالي
+    const otherImposters = gameData.imposters
+      .filter(index => index !== currentPlayerIndex)
+      .map(index => gameData.players[index].name);
+
+    let partnersText = "";
+    if (otherImposters.length > 0) {
+      partnersText = `
+        <div class="partners-box">
+          <p style="font-size: 14px; margin-bottom: 5px; color: #ff9f43;">شركاؤك في الفريق هم:</p>
+          <div style="font-weight: bold; font-size: 18px;">${otherImposters.join(" و ")}</div>
+        </div>
+      `;
+    } else {
+      partnersText = `<p style="color: #ff9f43;">أنت الإمبوستر الوحيد في هذه الجولة.</p>`;
+    }
+
+    content = `
+      <div class="imposter-alert">
+        <div style="font-size: 50px; animation: pulse 1s infinite;">😈</div>
+        <div style="font-size: 24px; font-weight: bold; margin: 10px 0;">أنت الإمبوستر!</div>
+        ${partnersText}
+        <p style="font-size: 15px; color: #eee; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 10px;">
+          تذكر: هدفكم هو التمويه حتى يتساوى عددكم مع عدد المواطنين.
+        </p>
+      </div>
+    `;
+  } else {
+    content = `
+      <p style="font-size: 18px; color: var(--muted);">كلمتك السرية هي:</p>
+      <div class="word-card">
+        ${gameData.currentWord}
+      </div>
+      <p style="color: var(--accent); font-weight: bold; margin-top: 15px;">تذكرها جيداً ولا تنطقها!</p>
+    `;
+  }
 
   renderScreen(`
-    <h2>👀 كشف الإمبوسترات</h2>
+    <div class="reveal-container screen-slide">
+      <h3 style="margin-bottom: 20px;">كشف الدور 🎭</h3>
+      
+      <div class="card reveal-card">
+        ${content}
+      </div>
 
-    <div class="card" style="font-size:22px">
-      ${impostersNames || "لا يوجد"}
+      <button class="primary-btn wide-btn" onclick="nextPlayer()" style="margin-top: 25px;">
+        تم، فهمت ✅
+      </button>
     </div>
-
-    <p>⚠️ انتبه! الجولة الجاية بكلمة جديدة</p>
-
-    <button onclick="prepareNextRound()">ابدأ الجولة التالية ▶️</button>
   `, false);
 }
 
@@ -1332,45 +1464,253 @@ function showImposterRevealThenNextRound() {
 
 
 
-function startNextRound() {
-  // اختيار كلمة جديدة
-  const categoryWords = words[gameData.category];
-  gameData.currentWord = getRandomWord(gameData.category);
+function showVoteResult() {
+  const voteCount = {};
+  Object.values(gameData.votes).forEach(voted =>
+    voted.forEach(i => voteCount[i] = (voteCount[i] || 0) + 1)
+  );
+
+  const entries = Object.entries(voteCount);
+  if (entries.length === 0) return startNextRound();
+
+  const maxVotes = Math.max(...entries.map(e => e[1]));
+  const topPlayers = entries
+    .filter(e => e[1] === maxVotes)
+    .map(e => Number(e[0]));
+
+  // حالة التعادل
+  if (topPlayers.length > 1) {
+    renderScreen(`
+      <div class="center-screen result-screen">
+        <h2>⚖️ تعادل في الأصوات</h2>
+        <p>لم يخرج أحد. استعدوا للجولة القادمة!</p>
+        <button class="primary-btn wide-btn" onclick="startNextRound()">استمرار اللعب</button>
+      </div>
+    `, false);
+    return;
+  }
+
+  // إخراج اللاعب وتحديث حالته
+  const eliminatedIndex = topPlayers[0];
+  gameData.players[eliminatedIndex].isOut = true; 
+  const wasImposter = gameData.imposters.includes(eliminatedIndex);
+
+  renderScreen(`
+    <div class="center-screen result-screen">
+      <div class="result-header">
+        <span class="result-emoji">${wasImposter ? '🔥' : '💀'}</span>
+        <h2 class="result-title">نتيجة التصويت</h2>
+      </div>
+      <div class="result-card">
+         خرج الآن: <b>${gameData.players[eliminatedIndex].name}</b><br>
+         <span style="color: ${wasImposter ? '#27ae60' : '#e74c3c'}">
+            ${wasImposter ? "(طلع إمبوستر فعلاً!)" : "(للأسف كان بريء)"}
+         </span>
+      </div>
+      <button class="primary-btn wide-btn" onclick="proceedAfterVote()">متابعة</button>
+    </div>
+  `, false);
+}
+
+// دالة وسيطة لربط النتيجة بالتحقق
+function proceedAfterVote() {
+  if (!checkGameOver()) {
+    startNextRound(); // يبدأ جولة جديدة بكلمات جديدة
+  }
+}
 
 
-  // إعادة الضبط
-  gameData.currentPlayerIndex = 0;
-  gameData.questions = [];
-  gameData.currentQuestionIndex = 0;
+
+
+function showImposterRevealThenNextRound() {
+  const names = gameData.imposters
+    .map(i => gameData.players[i]?.name)
+    .filter(Boolean)
+    .join(" ، ");
+
+  renderScreen(`
+    <div class="center-screen result-screen">
+      <div class="result-header">
+        <span class="result-emoji">👀</span>
+        <h2 class="result-title">كشف الإمبوسترات</h2>
+      </div>
+
+      <div class="result-card">
+        ${names || "لا يوجد"}
+      </div>
+
+      <div class="result-card">
+        ⚠️ الجولة الجاية بكلمة جديدة
+      </div>
+
+      <button class="primary-btn wide-btn"
+        onclick="prepareNextRound()">
+        ابدأ الجولة التالية ▶
+      </button>
+    </div>
+  `, false);
+}
+
+
+
+
+/* =====================
+   تعديل شاشات الفوز النهائية
+===================== */
+
+function renderPlayersWin() {
+  renderScreen(`
+    <div class="center-screen result-screen win-players">
+      <div class="result-header">
+        <span class="result-emoji" style="font-size: 80px;">🏆</span>
+        <h1 class="result-title" style="color: #27ae60;">انتصر المواطنون!</h1>
+        <p>لقد نجحتم في كشف الإمبوسترات وتطهير المدينة.</p>
+      </div>
+
+      <div class="result-card">
+        <b>الكلمة كانت:</b> <span style="color: var(--accent);">${gameData.currentWord}</span>
+      </div>
+
+      <button class="primary-btn wide-btn pulse" onclick="resetGameFull()">
+        لعبة جديدة 🔄
+      </button>
+    </div>
+  `, false);
+}
+
+function renderImpostersWin() {
+  const names = gameData.imposters
+    .map(i => gameData.players[i].name)
+    .join(" و ");
+
+  renderScreen(`
+    <div class="center-screen result-screen win-imposters">
+      <div class="result-header">
+        <span class="result-emoji" style="font-size: 80px;">😈</span>
+        <h1 class="result-title" style="color: #e74c3c;">فاز الإمبوستر!</h1>
+        <p>لقد نجح الخونة في خداع الجميع.</p>
+      </div>
+
+      <div class="result-card">
+        <b>الخونة هم:</b> <br>
+        <span style="font-size: 20px; color: #e74c3c;">${names}</span>
+      </div>
+
+      <button class="primary-btn wide-btn pulse" onclick="resetGameFull()" style="background: #e74c3c;">
+        حاول مرة أخرى 🔄
+      </button>
+    </div>
+  `, false);
+}
+function checkGameOver() {
+  // 1. جلب اللاعبين الأحياء فقط
+  const alivePlayers = gameData.players.filter(p => !p.isOut);
+  
+  // 2. جلب الإمبوسترات الأحياء فقط
+  const aliveImposters = alivePlayers.filter((p) => {
+    const originalIndex = gameData.players.indexOf(p);
+    return gameData.imposters.includes(originalIndex);
+  });
+
+  const aliveCitizensCount = alivePlayers.length - aliveImposters.length;
+
+  // فحص فوز المواطنين (إذا انتهى كل الإمبوسترز)
+  if (aliveImposters.length === 0) {
+    renderPlayersWin();
+    return true;
+  }
+
+  // فحص فوز الإمبوستر (قانونك: التساوي أو التفوق)
+  if (aliveImposters.length >= aliveCitizensCount) {
+    renderImpostersWin();
+    return true;
+  }
+
+  return false; // اللعبة مستمرة
+}
+
+
+
+function resetGameFull() {
+  // تصفير بيانات الجولة مع الحفاظ على "كل اللاعبين"
+  gameData.players = gameData.allPlayers.map(p => ({
+    ...p,
+    isOut: false
+  }));
+  gameData.imposters = [];
   gameData.votes = {};
   gameData.currentVoter = 0;
-
-  showPlayerReveal();
+  gameData.currentQuestionIndex = 0;
+  
+  // العودة لشاشة اختيار القسم
+  showCategoryScreen();
 }
+
+
+/* =====================
+   تحسين شاشة الدور على
+===================== */
+
+function showPlayerReveal() {
+  const player = gameData.players[gameData.currentPlayerIndex];
+  
+  // إذا كان اللاعب خارج اللعبة، ننتقل للتالي فوراً
+  if (player.isOut) {
+    nextPlayer();
+    return;
+  }
+
+  renderScreen(`
+    <div class="center-screen reveal-screen">
+      <div class="player-intro-card">
+        <img src="${player.avatar}" class="avatar large-avatar">
+        <h2 class="player-name-title">دور اللاعب: ${player.name}</h2>
+        <p class="warning-text">مرر الموبايل لـ ${player.name} ولا تنظر للشاشة!</p>
+      </div>
+      
+      <button class="primary-btn wide-btn reveal-btn pulse" onclick="revealRole()">
+        👁️ اكشف دوري
+      </button>
+    </div>
+  `, false);
+}
+
+
+
+
+
+
 function showCountdownBeforeReveal() {
   let time = 3;
 
-  screen.innerHTML = `
-    <h2>⏳ تجهيز الكشف</h2>
-    <div class="timer-circle" id="timer">${time}</div>
-  `;
-  screen.className = "fade-in";
+  renderScreen(`
+    <div class="center-screen">
+      <h2>⏳ تجهيز الكشف</h2>
+      <div class="timer-circle">
+        <svg width="120" height="120">
+          <circle cx="60" cy="60" r="54"
+            stroke="rgba(255,255,255,0.15)"
+            stroke-width="8" fill="none" />
+          <circle id="timerProgress"
+            cx="60" cy="60" r="54"
+            stroke="var(--accent)"
+            stroke-width="8"
+            fill="none"
+            stroke-linecap="round"
+            stroke-dasharray="339"
+            stroke-dashoffset="0"/>
+        </svg>
+        <span id="timerText">${time}</span>
+      </div>
+    </div>
+  `, false);
 
-  playSound("tick");
+  setTimeout(showImposterRevealThenNextRound, 3000);
 
-  const interval = setInterval(() => {
-    time--;
-    document.getElementById("timer").innerText = time;
-
-    playSound("tick");
-
-    if (time === 0) {
-      clearInterval(interval);
-      playSound("reveal");
-      showImposterRevealThenNextRound();
-    }
-  }, 1000);
 }
+
+
+
 
 function playSound(type) {
   const sounds = {
@@ -1382,15 +1722,24 @@ function playSound(type) {
   sounds[type].play();
 }
 
-function toggleTheme() {
-  document.body.classList.toggle("dark");
 
-  const isDark = document.body.classList.contains("dark");
+
+function toggleTheme() {
+  const isDark = document.body.classList.toggle("dark");
+
+  document
+    .querySelector('meta[name="theme-color"]')
+    .setAttribute(
+      "content",
+      isDark ? "#0f0f13" : "#f4f6fb"
+    );
+
   localStorage.setItem("theme", isDark ? "dark" : "light");
 
-  document.getElementById("themeToggle").innerText =
-    isDark ? "☀️" : "🌙";
+  const btn = document.querySelector(".theme-btn");
+  if (btn) btn.innerText = isDark ? "☀️" : "🌙";
 }
+
 
 
 function loadGameState() {
@@ -1407,22 +1756,31 @@ function loadGameState() {
 // عند التشغيل
 (function loadTheme() {
   const saved = localStorage.getItem("theme");
+
   if (saved === "dark") {
     document.body.classList.add("dark");
-    document.getElementById("themeToggle").innerText = "☀️";
+    const btn = document.querySelector(".theme-btn");
+    if (btn) btn.innerText = "☀️";
   }
 })();
 
+
 const getName = i => gameData.players[i].name;
 
-const categories = Object.keys(words);
+
 
 // تشغيل اللعبة
 loadGameState();
 
 
 function startNewGame() {
-  // إعادة ضبط حالة الجيم فقط
+  // إعادة تكوين لاعبي الجولة من المسجلين
+  gameData.players = gameData.allPlayers.map(p => ({
+  ...p,
+  isOut: false
+}));
+
+  // تصفير حالة الجيم
   gameData.category = null;
   gameData.currentWord = null;
   gameData.imposters = [];
@@ -1434,15 +1792,14 @@ function startNewGame() {
   gameData.eliminatedImposters = 0;
   gameData.eliminatedPlayers = 0;
 
-  // ⛔ ممنوع لمس localStorage هنا
-  // ❌ localStorage.removeItem("gameState");
-
   showCategoryScreen();
 }
 
 
 
+
 function exitGame() {
-  localStorage.removeItem("gameState"); // امسح الجيم بس
+  localStorage.removeItem("gameState"); 
   location.reload();
 }
+// تأكد من حذف أي } زائدة هنا
